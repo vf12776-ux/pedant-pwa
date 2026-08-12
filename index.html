@@ -280,59 +280,69 @@
     </div>
 
     <script>
-        let deferredPrompt = null;
-        const installButtons = document.getElementById('installButtons');
-        const installBtnAndroid = document.getElementById('installBtnAndroid');
-        const installBtnIOS = document.getElementById('installBtnIOS');
-        const iosModal = document.getElementById('iosModal');
-        const androidModal = document.getElementById('androidModal');
+    let deferredPrompt = null;
+    const installButtons = document.getElementById('installButtons');
+    const installBtnAndroid = document.getElementById('installBtnAndroid');
+    const installBtnIOS = document.getElementById('installBtnIOS');
+    const iosModal = document.getElementById('iosModal');
+    const androidModal = document.getElementById('androidModal');
 
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-        const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-        const isAndroid = /Android/.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    // Определяем встроенный браузер (WebView) — там установка не работает
+    const isWebView = /; wv\)|; wv\)/.test(navigator.userAgent) ||
+                      (isAndroid && /Version\/[\d.]+.*Chrome\/[.\d]+ Mobile/.test(navigator.userAgent) && !/Mobile Safari/.test(navigator.userAgent));
 
-        if (isStandalone) {
-            installButtons.style.display = 'none';
-        } else {
-            if (isIOS) {
-                installBtnAndroid.style.display = 'none';
-            } else if (isAndroid) {
-                installBtnIOS.style.display = 'none';
+    if (isStandalone) {
+        installButtons.style.display = 'none';
+    } else {
+        if (isIOS) {
+            installBtnAndroid.style.display = 'none';
+        } else if (isAndroid) {
+            installBtnIOS.style.display = 'none';
+        }
+
+        // Ловим готовность к установке
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Подсветим кнопку, когда установка реально доступна
+            installBtnAndroid.style.boxShadow = '0 0 0 3px #fbbf24, 0 4px 12px rgba(0,0,0,0.2)';
+        });
+
+        installBtnAndroid.addEventListener('click', async () => {
+            if (isWebView) {
+                alert('Похоже, страница открыта во встроенном браузере.\nОткройте ссылку в Chrome: нажмите ⋮ → «Открыть в Chrome».');
+                return;
             }
-
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                deferredPrompt = e;
-            });
-
-            installBtnAndroid.addEventListener('click', async () => {
-                if (deferredPrompt) {
-                    deferredPrompt.prompt();
-                    const { outcome } = await deferredPrompt.userChoice;
-                    if (outcome === 'accepted') {
-                        installButtons.style.display = 'none';
-                        localStorage.setItem('pwa-installed', 'true');
-                    }
-                    deferredPrompt = null;
-                } else {
-                    androidModal.classList.add('show');
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    installButtons.style.display = 'none';
+                    localStorage.setItem('pwa-installed', 'true');
                 }
-            });
-
-            installBtnIOS.addEventListener('click', () => {
-                iosModal.classList.add('show');
-            });
-
-            window.addEventListener('appinstalled', () => {
-                installButtons.style.display = 'none';
-                localStorage.setItem('pwa-installed', 'true');
                 deferredPrompt = null;
-            });
-        }
+            } else {
+                androidModal.classList.add('show');
+            }
+        });
 
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
-        }
-    </script>
+        installBtnIOS.addEventListener('click', () => {
+            iosModal.classList.add('show');
+        });
+
+        window.addEventListener('appinstalled', () => {
+            installButtons.style.display = 'none';
+            localStorage.setItem('pwa-installed', 'true');
+            deferredPrompt = null;
+        });
+    }
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+    }
+</script>
 </body>
 </html>
